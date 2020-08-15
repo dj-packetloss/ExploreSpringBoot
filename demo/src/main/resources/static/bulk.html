@@ -1,0 +1,16 @@
+<form action="/calcBulkRewards" method="post" >
+
+<!-- CSS is an achilles heel, minimal "display:block;" for new lines -->
+<label for="json" style="display:block;">Big ol' json payload:</label>
+<textarea id="json" name="json" rows="20" cols="75" style="display:block;"> 
+[ {"customerId":"1", "purchaseAmt":"101", "purchaseTime":"2020-08-13"}    
+  ,{"customerId":"2", "purchaseAmt":"65", "purchaseTime":"2020-07-13"}    
+  ,{"customerId":"1", "purchaseAmt":"55", "purchaseTime":"2020-06-15"}    
+  ,{"customerId":"1", "purchaseAmt":"275", "purchaseTime":"2020-04-01"}   
+  ,{"customerId":"3", "purchaseAmt":"15", "purchaseTime":"2020-08-01"} 
+  ,{"customerId":"1", "purchaseAmt":"51", "purchaseTime":"2020-08-01"}
+ ]
+</textarea>
+<input type="submit" value="Do your worst" style="display:block;">
+
+</form>
