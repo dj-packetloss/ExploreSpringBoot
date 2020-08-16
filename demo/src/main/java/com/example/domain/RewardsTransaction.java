@@ -8,10 +8,17 @@ import java.time.format.DateTimeParseException;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class RewardsTransaction {
 
+	private static final int POINT_THRESHOLD_100 = 100;
+	private static final int POINT_THRESHOLD_50  =  50;
+	
+	private static final int REWARD_THRESHOLD_100 = 2;
+	private static final int REWARD_THRESHOLD_50  = 1;
+	
 	private Integer customerId;
 	private Integer purchaseAmt;
 	private LocalDate purchaseTime;
 	private String purchaseMonth;
+	private Integer rewardsPoints;
 
 	public RewardsTransaction() {
 		// meh?
@@ -19,7 +26,7 @@ public class RewardsTransaction {
 	
 	public RewardsTransaction(Integer customerId, Integer purchaseAmt, LocalDate purchaseTime) {
 		this.customerId = customerId;
-		this.purchaseAmt = purchaseAmt;
+		this.setPurchaseAmt(purchaseAmt);
 		this.purchaseTime = purchaseTime;
 		this.purchaseMonth = String.valueOf(purchaseTime.getYear()) + String.valueOf(purchaseTime.getMonthValue());
 		
@@ -39,6 +46,8 @@ public class RewardsTransaction {
 	
 	public void setPurchaseAmt(Integer purchaseAmt) {
 		this.purchaseAmt = purchaseAmt;
+		
+		this.rewardsPoints = calcRewardsForPurchase(purchaseAmt);
 	}
 	
 	public LocalDate getPurchaseTime() {
@@ -59,9 +68,32 @@ public class RewardsTransaction {
 		}
 	}
 	
+	// Setter is hidden intentionally as this is derived
 	public String getPurchaseMonth() {
 		return this.purchaseMonth;
 	}
+	
+	// Setter is hidden intentionally as this is derived
+	public Integer getRewardsPoints() {
+		return this.rewardsPoints;
+	}
+	
+	public static int calcRewardsForPurchase(int purchaseAmt) {
+ 		if (purchaseAmt > POINT_THRESHOLD_100) {
+ 			// EXPLICIT    - (((purchasePoints - POINT_THRESHOLD_100) * REWARD_THRESHOLD_100) + ((POINT_THRESHOLD_100 - POINT_THRESHOLD_50) * REWARD_THRESHOLD_50)
+ 			// PERFORMANCE - (((purchasePoints - POINT_THRESHOLD_100) * REWARD_THRESHOLD_100) + 50)
+ 			return (((purchaseAmt - POINT_THRESHOLD_100) * REWARD_THRESHOLD_100) + 50);
+ 		}
+
+ 		if (purchaseAmt > POINT_THRESHOLD_50) {
+ 			// EXPLICIT    - ((purchasePoints - POINT_THRESHOLD_50) * REWARD_THRESHOLD_50)
+ 			// PERFORMANCE - (purchasePoints - POINT_THRESHOLD_50)
+ 			return (purchaseAmt - POINT_THRESHOLD_50);
+ 		}
+ 		
+ 		// Not high enough to receive anything
+ 		return 0;
+ 	}
 	
 	@Override
 	public String toString() {

@@ -32,11 +32,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @RestController
 public class DemoApplication {
     
-	private static final int POINT_THRESHOLD_100 = 100;
-	private static final int POINT_THRESHOLD_50  =  50;
-	
-	private static final int REWARD_THRESHOLD_100 = 2;
-	private static final int REWARD_THRESHOLD_50  = 1;
+
 	  
     public static void main(String[] args) {
     	SpringApplication.run(DemoApplication.class, args);
@@ -65,20 +61,7 @@ public class DemoApplication {
  	*/
     @GetMapping("/calcRewardsForPurchase")
  	public int calcRewardsForPurchase(@RequestParam("purchaseAmt") int purchaseAmt) {
- 		if (purchaseAmt > POINT_THRESHOLD_100) {
- 			// EXPLICIT    - (((purchasePoints - POINT_THRESHOLD_100) * REWARD_THRESHOLD_100) + ((POINT_THRESHOLD_100 - POINT_THRESHOLD_50) * REWARD_THRESHOLD_50)
- 			// PERFORMANCE - (((purchasePoints - POINT_THRESHOLD_100) * REWARD_THRESHOLD_100) + 50)
- 			return (((purchaseAmt - POINT_THRESHOLD_100) * REWARD_THRESHOLD_100) + 50);
- 		}
-
- 		if (purchaseAmt > POINT_THRESHOLD_50) {
- 			// EXPLICIT    - ((purchasePoints - POINT_THRESHOLD_50) * REWARD_THRESHOLD_50)
- 			// PERFORMANCE - (purchasePoints - POINT_THRESHOLD_50)
- 			return (purchaseAmt - POINT_THRESHOLD_50);
- 		}
- 		
- 		// Not high enough to receive anything
- 		return 0;
+ 		return RewardsTransaction.calcRewardsForPurchase(purchaseAmt);
  	}
       
     /*  
@@ -102,8 +85,8 @@ public class DemoApplication {
 	    	
 	    	RewardsPoints temp = new RewardsPoints();
 	    	temp.setCustomerId(transaction.getCustomerId());
-	    	temp.setRewardsMonth(String.valueOf(transaction.getPurchaseTime().getMonthValue()));
-	    	temp.setRewardsPoints(calcRewardsForPurchase(transaction.getPurchaseAmt()));
+	    	temp.setRewardsMonth(transaction.getPurchaseMonth());
+	    	temp.setRewardsPoints(RewardsTransaction.calcRewardsForPurchase(transaction.getPurchaseAmt()));
 	    	// Because this is a toy example
 	    	//temp.setTotal(temp.getRewardsPoints());
 	    	
@@ -174,12 +157,31 @@ public class DemoApplication {
 	    	// Sum each month for each customer + print a total
 	    	
 	    	// Add grouping to the filter we tried above  (customerid, month, [data]) 
-	    	Map<Integer, Map<String, List<RewardsTransaction>>> mapOfDoom = Arrays.stream(transactions)
+			Map<Integer, Map<String, Integer>> mapOfDoom = 
+					Arrays.stream(transactions)
 					.filter(trans -> trans.getPurchaseTime().compareTo(LocalDate.now().minusMonths(3)) >= 0)
-					.collect(Collectors.groupingBy(RewardsTransaction::getCustomerId
-							,Collectors.groupingBy(RewardsTransaction::getPurchaseMonth))
-					        )
-					        ;
+					.collect(Collectors.groupingBy(RewardsTransaction::getCustomerId                           // Map<Integer, List<RewardsTransaction>>
+								,Collectors.groupingBy(RewardsTransaction::getPurchaseMonth                    // Map<Integer, Map<String, List<RewardsTransaction>>>
+										, Collectors.summingInt(rew -> rew.getRewardsPoints())                 // Should be a Map< customerid , Map< month , sum_of_rewards_points >>
+								)
+							)
+					 )
+			;
+					
+	    	
+	    	// TODO attempt single pass above.  Stream APIs have some neat aggregate options.  
+	    	// Need to do more reading to get the right syntax for nested collectors  =(
+	    	
+			// All of our data sans roll up is here
+			System.out.println(mapOfDoom);
+
+			// Convert our crazy map to something a little easier to wield later?
+			List<RewardsOutput> getout = new ArrayList<RewardsOutput>(transactions.length);
+			mapOfDoom.forEach((i, m) ->  					//  References Map<Integer, Map<String, Integer>>  i = Integer, m = Map<String,Integer> 
+								m.forEach((key, value) -> 	// Where i = customerid, key = month, value = rewards points
+									getout.add(new RewardsOutput(i, key, value)))  
+							)
+			;
 	    	
 	    	// TODO return a RewardsPoints[] and let jackson take care of the json mapping
 	    	return new ResponseEntity<RewardsPoints[]>(null, new HttpHeaders(), HttpStatus.OK);
