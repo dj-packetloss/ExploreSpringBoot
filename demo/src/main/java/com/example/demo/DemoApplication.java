@@ -1,6 +1,8 @@
 
 package com.example.demo;
   
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.http.HttpHeaders;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -32,8 +35,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @RestController
 public class DemoApplication {
     
+	private static final Logger log = LoggerFactory.getLogger(DemoApplication.class);
 
-	  
     public static void main(String[] args) {
     	SpringApplication.run(DemoApplication.class, args);
     	
@@ -78,7 +81,9 @@ public class DemoApplication {
     public ResponseEntity<RewardsPoints> calcRewardsForTransaction(@RequestParam("json") String json) {
     	
     	try {
-    		System.out.println("JSON=" + json);
+    		if (log.isDebugEnabled()) {
+    			log.debug("JSON=" + json);
+    		}
     		
     		// This is all or nothing and we'll get a generic error if/when it fails.
 	    	RewardsTransaction transaction = new ObjectMapper().readValue(json, RewardsTransaction.class);
@@ -97,8 +102,7 @@ public class DemoApplication {
     		// JsonMappingException
     		// JsonParseException
     		// IOException
-    		System.out.println("Oops!  Encountered an error attempting to read json & calculate rewards.");
-    		e.printStackTrace();
+    		log.error("Oops!  Encountered an error attempting to read json & calculate rewards.", e);
     	}
     	
     	// Plug bad request return statement here for compiler.
@@ -127,24 +131,24 @@ public class DemoApplication {
      *               ,{"customerId":"1", "purchaseAmt":"51", "purchaseTime":"2020-08-01"}     # should be 1 rewards point for customer 1  (Total 58)  (Total for month 8 = 53)
      *              ]
      *              
-     *  JSON output [ {"customerId":"1", "rewardsMonth":"202008", "rewardsAmt":"52"}
-     *               ,{"customerId":"1", "rewardsMonth":"202006", "rewardsAmt":"5"}
-     *               ,{"customerId":"1", "totalRewards":"57"}
-     *               ,{"customerId":"2", "rewardsMonth":"202007", "rewardsAmt":"15"}
-     *               ,{"customerId":"2", "totalRewards":"15"}
-     *               ,{"customerId":"3", "rewardsMonth":"202008", "rewardsAmt":"0"}                # arguably could be ignored
-     *               ,{"customerId":"3", "totalRewards":"0"}
+     *  JSON output [ {"customerId":"1", "rewardsMonth":"202008", "rewardsPoints":"52"}
+     *               ,{"customerId":"1", "rewardsMonth":"202006", "rewardsPoints":"5"}
+     *               ,{"customerId":"1", "rewardsMonth":"Total",  "rewardsPoints":"57"}
+     *               ,{"customerId":"2", "rewardsMonth":"202007", "rewardsPoints":"15"}
+     *               ,{"customerId":"2", "rewardsMonth":"Total",  "rewardsPoints":"15"}
+     *               ,{"customerId":"3", "rewardsMonth":"202008", "rewardsPoints":"0"}                # arguably could be ignored
+     *               ,{"customerId":"3", "rewardsMonth":"Total",  "rewardsPoints":"0"}
      *              ]
      */
     @PostMapping("/calcBulkRewards")
-    public ResponseEntity<RewardsPoints[]> calcBulkRewards(@RequestParam("json") String json) {
+    public ResponseEntity<List<RewardsOutput>> calcBulkRewards(@RequestParam("json") String json) {
     	
     	try {
-    		System.out.println("JSON=" + json);
+    		if (log.isDebugEnabled()) {
+    			log.debug("JSON=" + json);
+    		}
     		
 	    	RewardsTransaction[] transactions = new ObjectMapper().readValue(json, RewardsTransaction[].class);
-
-	    	List<RewardsPoints> rewards = new ArrayList<RewardsPoints>(transactions.length);
 	    	
 	    	// Show off java.time + stream filtering
 	    	/*
@@ -173,42 +177,39 @@ public class DemoApplication {
 	    	// Need to do more reading to get the right syntax for nested collectors  =(
 	    	
 			// All of our data sans roll up is here
-			System.out.println(mapOfDoom);
+			if (log.isDebugEnabled()) {
+				log.debug(mapOfDoom.toString());
+			}
 
 			// Convert our crazy map to something a little easier to wield later?
 			List<RewardsOutput> getout = new ArrayList<RewardsOutput>(transactions.length);
-			mapOfDoom.forEach((i, m) ->  					//  References Map<Integer, Map<String, Integer>>  i = Integer, m = Map<String,Integer> 
-								m.forEach((key, value) -> 	// Where i = customerid, key = month, value = rewards points
-									getout.add(new RewardsOutput(i, key, value)))  
+			mapOfDoom.forEach((i, m) ->																//  References Map<Integer, Map<String, Integer>>  i = Integer, m = Map<String,Integer> 
+								{ final RewardsOutput total = new RewardsOutput(i, "Total", 0);		//  Kludge to hold rollup totals
+									m.forEach((key, value) -> 										//  Where i = customerid, key = month, value = rewards points
+											{   total.setRewardsPoints(total.getRewardsPoints() + value);
+												getout.add(new RewardsOutput(i, key, value));
+											});
+								  getout.add(total);
+								}
 							)
 			;
-	    	
-	    	// TODO return a RewardsPoints[] and let jackson take care of the json mapping
-	    	return new ResponseEntity<RewardsPoints[]>(null, new HttpHeaders(), HttpStatus.OK);
+
+			Collections.sort(getout, new RewardsOutputComparator());
+			
+			if (log.isDebugEnabled()) {
+				log.debug(getout.toString());	
+			}
+
+	    	return new ResponseEntity<List<RewardsOutput>>(getout, new HttpHeaders(), HttpStatus.OK);
     	} catch (Exception e) {
     		// Not handled for toy application when attempting to convert String -> JSON -> RewardsTransaction
     		// JsonMappingException
     		// JsonParseException
     		// IOException
-    		System.out.println("Oops!  Encountered an error attempting to read json & calculate rewards.");
-    		e.printStackTrace();
+    		log.error("Oops!  Encountered an error attempting to read json & calculate rewards.", e);
     	}
     	
     	// Plug bad request return statement here for compiler.
-    	return new ResponseEntity<RewardsPoints[]>(null, new HttpHeaders(), HttpStatus.BAD_REQUEST);
+    	return new ResponseEntity<List<RewardsOutput>>(null, new HttpHeaders(), HttpStatus.BAD_REQUEST);
     }
-    
-    // A helper function for use in Stream.forEach
-    private RewardsPoints setUpRewardsFromTransaction(RewardsTransaction transaction) {
-
-    	System.out.println(transaction);
-    	
-    	RewardsPoints temp = new RewardsPoints();
-    	temp.setCustomerId(transaction.getCustomerId());
-    	temp.setRewardsMonth(String.valueOf(transaction.getPurchaseTime().getYear()) + String.valueOf(transaction.getPurchaseTime().getMonthValue()));
-    	temp.setRewardsPoints(calcRewardsForPurchase(transaction.getPurchaseAmt()));
-    	
-    	return temp;
-    }
-    
-  }
+}

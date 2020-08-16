@@ -42,4 +42,13 @@ public class RewardsOutput {
 		this.rewardsPoints = rewardsPoints;
 	}
 	
+	@Override
+	public String toString() {
+		return "RewardsOutput{" +
+				"customerId=" + customerId +
+				", purchaseMonth=" + purchaseMonth +
+				", rewardsPoints=" + rewardsPoints + 
+				'}';
+	}
+
 }
