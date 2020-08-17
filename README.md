@@ -1,5 +1,6 @@
 # ExploreSpringBoot
 
+<pre>
 Preflight - You need Java JDK 8+ installed.  I used Windows x64 Java 8u261
 
 First Spring Boot project
@@ -54,7 +55,7 @@ Toy java problem #3 - POST to "http://localhost:8080/calcBulkRewards"
   Crossing the streams!
   Attempting to solve common summation + rollup problem using streams
   
-  
+</pre>
 
 
 
