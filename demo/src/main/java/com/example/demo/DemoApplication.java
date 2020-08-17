@@ -39,12 +39,17 @@ public class DemoApplication {
 
     public static void main(String[] args) {
     	SpringApplication.run(DemoApplication.class, args);
-    	
-    	// Stupid eclipse hackery to ensure spring-boot's tomcat dies
-    	System.out.println("Press 'Enter' to terminate");
-        new Scanner(System.in).nextLine();
-        System.out.println("Terminating");
-        System.exit(0);
+    }
+    
+    /* Send an exit signal to the spring-boot tomcat application. 
+     * 
+     * URL:  http://localhost:8080/seppuku
+     */
+    @GetMapping("/seppuku")
+    public void seppuku() {
+    	// The "error" log is just to ensure this is information is made available under default log settings.
+    	log.error("Killing myself as requested");
+    	System.exit(0);
     }
     
     // Keeping the hello world test from spring.io/quickstart  , because why not?
